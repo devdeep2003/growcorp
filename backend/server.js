@@ -15,11 +15,7 @@ dotenv.config();
 const app = express();
 
 app.use(express.json());
-app.use(cors({
-  origin: ["http://localhost:3000", "http://127.0.0.1:3000"],
-  credentials: true,
-  optionsSuccessStatus: 200
-}));
+app.use(cors());
 
 // Mount Routes
 app.use("/api/auth", authRoutes);

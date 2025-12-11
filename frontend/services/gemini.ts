@@ -1,7 +1,7 @@
 
 import { GoogleGenAI } from "@google/genai";
 
-const API_KEY = process.env.API_KEY || '';
+const API_KEY = process.env.GEMINI_API_KEY || '';
 
 export const getMarketInsights = async (): Promise<string> => {
   if (!API_KEY) {

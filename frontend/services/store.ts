@@ -72,9 +72,9 @@ export const store = {
     },
 
     getTransactions: async (userId?: string): Promise<Transaction[]> => {
-        if (!userId) return [];
         try {
-            const response = await fetch(`${API_URL}/transactions/${userId}`);
+            const url = userId ? `${API_URL}/transactions/${userId}` : `${API_URL}/admin/transactions`;
+            const response = await fetch(url);
             const data = await response.json();
             if (!response.ok) throw new Error(data.error);
             return data;
@@ -209,8 +209,15 @@ export const store = {
     },
 
     getReferrals: async (referralCode: string): Promise<User[]> => {
-        // Not implemented API yet
-        return [];
+        try {
+            const response = await fetch(`${API_URL}/auth/referrals/${referralCode}`);
+            const data = await response.json();
+            if (!response.ok) return [];
+            return data;
+        } catch (error) {
+            console.error("Get Referrals Error:", error);
+            return [];
+        }
     },
 
     // Log helpers - purely frontend or need backend log endpoint

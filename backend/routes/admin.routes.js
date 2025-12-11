@@ -1,6 +1,7 @@
 import express from 'express';
 import { 
     UpdateTransactionStatus, 
+    GetAllTransactions,
     GetUsers, 
     UpdateUserStatus, 
     UpdateKYCStatus,
@@ -15,6 +16,7 @@ import {
 const router = express.Router();
 
 // Transactions
+router.get('/transactions', GetAllTransactions);
 router.post('/transactions/:txId/status', UpdateTransactionStatus);
 
 // Users

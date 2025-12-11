@@ -99,4 +99,15 @@ export const SubmitKYCController = async (req, res) => {
     } catch (err) {
         return res.status(500).json({ error: err.message });
     }
+
+};
+
+export const GetReferralsController = async (req, res) => {
+    try {
+        const { code } = req.params;
+        const referrals = db.users.filter(u => u.referredBy === code);
+        return res.status(200).json(referrals);
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
+    }
 };

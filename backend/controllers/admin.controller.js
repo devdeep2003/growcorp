@@ -21,7 +21,44 @@ export const UpdateTransactionStatus = async (req, res) => {
         if (tx.type === 'deposit') {
             if (status === 'approved') {
                 wallet.balanceINR += tx.amount;
-                // Add bonus logic if needed? No, kept simple.
+                
+                // --- Referral Bonus Logic (5% on First Deposit) ---
+                const user = db.users.find(u => u.id === tx.userId);
+                if (user && user.referredBy) {
+                    // Check if this is the FIRST approved deposit
+                    const previousDeposits = db.transactions.filter(t => t.userId === tx.userId && t.type === 'deposit' && t.status === 'approved' && t.id !== txId);
+                    
+                    if (previousDeposits.length === 0) {
+                        const referrer = db.users.find(u => u.referralCode === user.referredBy);
+                        if (referrer) {
+                            const refWallet = db.wallets.find(w => w.userId === referrer.id);
+                            if (refWallet) {
+                                const bonus = tx.amount * 0.05; // 5%
+                                refWallet.balanceINR += bonus;
+                                refWallet.totalPartnershipBonus += bonus;
+                                
+                                db.transactions.push({
+                                    id: `tx_bonus_${Date.now()}`,
+                                    status: 'approved',
+                                    date: new Date().toISOString(),
+                                    userId: referrer.id,
+                                    type: 'deposit', // or special type 'bonus'
+                                    amount: bonus,
+                                    method: 'System',
+                                    walletAddress: 'Referral Bonus'
+                                });
+                                
+                                db.adminLogs.push({
+                                    id: `log_bonus_${Date.now()}`,
+                                    date: new Date().toISOString(),
+                                    adminId: 'system',
+                                    action: 'Referral Bonus',
+                                    details: `Paid ${bonus} to ${referrer.name} for ${user.name}`
+                                });
+                            }
+                        }
+                    }
+                }
             }
             // If rejected, nothing happens (money never arrived)
         } else if (tx.type === 'withdrawal') {
@@ -45,6 +82,15 @@ export const UpdateTransactionStatus = async (req, res) => {
 
         return res.status(200).json({ success: true, transaction: tx });
 
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
+    }
+};
+
+export const GetAllTransactions = async (req, res) => {
+    try {
+        const txs = db.transactions.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        return res.status(200).json(txs);
     } catch (err) {
         return res.status(500).json({ error: err.message });
     }
