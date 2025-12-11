@@ -1,7 +1,6 @@
-import { supabase } from "../lib/supabaseClient.js";
+import db from "../lib/mockDb.js";
 import { isEmailPhone } from "../lib/typeDetector.js";
 
-// ------------------- LOGIN -------------------
 export const LoginController = async (req, res) => {
   try {
     const { phoneorEmail } = req.body;
@@ -16,33 +15,28 @@ export const LoginController = async (req, res) => {
       return res.status(400).json({ error: "Invalid email or phone" });
     }
 
-    const { data, error } = await supabase
-      .from("Users")
-      .select("*")
-      .eq(field, phoneorEmail)
-      .maybeSingle();
+    const user = db.users.find(u => u[field] === phoneorEmail);
 
-    if (error) {
-      return res.status(400).json({ error: error.message });
-    }
-
-    if (!data) {
+    if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    return res.status(200).json({ success: true, data });
+    // In a real app we would check password here. 
+    // For now we just return the user as per previous logic.
+    if(user.isBlocked) {
+        return res.status(403).json({ error: "Account is blocked" });
+    }
+
+    return res.status(200).json({ success: true, data: user });
 
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
 };
 
-
-
-// ------------------- REGISTER -------------------
 export const RegisterController = async (req, res) => {
   try {
-    const { fullName, email, phone, refcode } = req.body;
+    const { fullName, email, phone, referralCode } = req.body;
 
     // Validate required fields
     if (!fullName || (!email && !phone)) {
@@ -51,16 +45,8 @@ export const RegisterController = async (req, res) => {
       });
     }
 
-    // Check if user already exists by email or phone
-    const { data: existingUser, error: existErr } = await supabase
-      .from("Users")
-      .select("*")
-      .or(`email.eq.${email},phone.eq.${phone}`)
-      .maybeSingle();
-
-    if (existErr) {
-      return res.status(400).json({ error: existErr.message });
-    }
+    // Check if user already exists
+    const existingUser = db.users.find(u => u.email === email || u.phone === phone);
 
     if (existingUser) {
       return res
@@ -68,31 +54,49 @@ export const RegisterController = async (req, res) => {
         .json({ error: "User already exists", exists: true });
     }
 
-    // Insert new user
-    const { data: user, error: insertErr } = await supabase
-      .from("Users")
-      .insert([
-        {
-          fullName,
-          email: email || null,
-          phone: phone || null,
-          refcode: refcode || null,
-        },
-      ])
-      .select()
-      .single();
+    const newId = `u${db.users.length + 1}`;
+    const myReferralCode = fullName.substring(0, 3).toUpperCase() + Math.floor(1000 + Math.random() * 9000);
 
-    if (insertErr) {
-      return res.status(400).json({ error: insertErr.message });
-    }
+    const newUser = {
+      id: newId,
+      email: email || null,
+      phone: phone || null,
+      name: fullName,
+      role: 'user',
+      referralCode: myReferralCode,
+      referredBy: referralCode,
+      joinedAt: new Date().toISOString(),
+      isBlocked: false,
+      kycStatus: 'none'
+    };
+
+    db.users.push(newUser);
+    
+    // Create empty wallet
+    db.wallets.push({ userId: newId, balanceINR: 0, totalProfit: 0, totalPartnershipBonus: 0 });
 
     return res.status(200).json({
       success: true,
-      data: user,
+      data: newUser,
       message: "User registered successfully",
     });
 
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
+};
+
+export const SubmitKYCController = async (req, res) => {
+    try {
+        const { userId, kycUrl } = req.body;
+        const user = db.users.find(u => u.id === userId);
+        if (!user) return res.status(404).json({ error: "User not found" });
+
+        user.kycData = kycUrl;
+        user.kycStatus = 'pending';
+        
+        return res.status(200).json({ success: true, user });
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
+    }
 };

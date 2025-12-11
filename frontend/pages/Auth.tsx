@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { User } from '../types';
 import { Button, Input, Card } from '../components/ui';
 import { Briefcase } from 'lucide-react';
+import { store } from '../services/store';
 
 interface AuthProps {
   onLogin: (user: User) => void;
@@ -26,43 +27,24 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
     setError('');
 
     try {
-      let response;
+      let data;
 
       // ---------------- LOGIN ----------------
       if (isLogin) {
         if (!formData.identifier) {
           throw new Error("Please enter your Email or Phone");
         }
-
-        response = await fetch("http://localhost:5000/api/auth/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ phoneorEmail: formData.identifier })
-        });
-
+        data = await store.login(formData.identifier);
       } 
       // ---------------- REGISTER ----------------
       else {
-        response = await fetch("http://localhost:5000/api/auth/register", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            fullName: formData.name,
-            email: formData.email,
-            phone: formData.phone,
-            refcode: formData.referral,
-          })
-        });
+        data = await store.register(formData.name, formData.email, formData.phone, formData.referral);
       }
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || "Request failed");
-      }
-
-      // SUCCESS → Login or Register
-      onLogin(result.data);
+      if (!data) throw new Error("Authentication failed");
+      
+      // SUCCESS
+      onLogin(data);
 
     } catch (err: any) {
       setError(err.message || 'An error occurred');
